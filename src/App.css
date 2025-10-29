@@ -1,0 +1,149 @@
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #fff;
+  padding: 0 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  font-size: 20px;
+  font-weight: bold;
+  color: #1890ff;
+}
+
+.app-logo .anticon {
+  margin-right: 8px;
+  font-size: 24px;
+}
+
+.app-sidebar {
+  background: #fff;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  cursor: pointer;
+}
+
+.plan-card {
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.plan-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.plan-card .ant-card-meta-title {
+  color: #1890ff;
+}
+
+.expense-summary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.expense-summary h2 {
+  color: white;
+  margin-bottom: 16px;
+}
+
+.expense-category {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.voice-input-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.voice-transcript {
+  flex: 1;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.map-placeholder {
+  height: 400px;
+  background: #f0f2f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 16px;
+  border: 2px dashed #d9d9d9;
+}
+
+.itinerary-day {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 8px;
+  border-left: 4px solid #1890ff;
+}
+
+.itinerary-day h3 {
+  color: #1890ff;
+  margin-bottom: 16px;
+}
+
+.attraction-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.attraction-item .anticon {
+  color: #1890ff;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  gap: 16px;
+}
+
+.planning-steps {
+  margin-bottom: 24px;
+}
+
+.step-content {
+  margin-top: 16px;
+}
