@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  ai-travel-planner:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    container_name: ai-travel-planner
+
+  # 可选：如果需要本地数据库
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: travel_planner
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:
