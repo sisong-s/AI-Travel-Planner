@@ -146,7 +146,7 @@ const Settings = () => {
 
             <Divider />
 
-            <Form.Item
+            {/* <Form.Item
               name="supabaseUrl"
               label="Supabase项目URL"
               extra="用于数据存储，格式如：https://your-project.supabase.co"
@@ -166,7 +166,7 @@ const Settings = () => {
                 placeholder="请输入Supabase匿名密钥"
                 prefix={<KeyOutlined />}
               />
-            </Form.Item>
+            </Form.Item> */}
 
             <Form.Item>
               <Button

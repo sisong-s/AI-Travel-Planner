@@ -152,6 +152,7 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
     let totalSuccess = 0;
     let totalFail = 0;
     let locationIndex = 1; // 全局位置编号
+    let firstLocation = null; // 保存第一个景点的位置
 
     // 遍历每一天
     for (let dayIndex = 0; dayIndex < dailyLocs.length; dayIndex++) {
@@ -181,6 +182,11 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
             const position = [place.location.lng, place.location.lat];
             allPositions.push(position);
             dayPositions.push(position);
+
+            // 保存第一个景点的位置
+            if (!firstLocation) {
+              firstLocation = position;
+            }
 
             // 添加标记 - 使用📍emoji作为标记
             if (mapInstanceRef.current) {
@@ -355,17 +361,24 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
       message.warning(`地点标记失败，请稍后重试或减少地点数量`);
     }
 
-    // 调整地图视野以包含所有标记
+    // 调整地图视野
     if (allPositions.length > 0) {
       setTimeout(() => {
         if (mapInstanceRef.current) {
           try {
-            mapInstanceRef.current.setFitView();
+            if (allPositions.length === 1) {
+              // 只有一个景点,定位到该景点
+              mapInstanceRef.current.setCenter(allPositions[0]);
+              mapInstanceRef.current.setZoom(13);
+            } else {
+              // 多个景点,调整视野包含所有景点
+              mapInstanceRef.current.setFitView();
+            }
           } catch (error) {
             console.error('调整地图视野失败:', error);
           }
         }
-      }, 300);
+      }, 500);
     }
   };
 
@@ -379,6 +392,7 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
     let successCount = 0;
     let failCount = 0;
     const totalCount = locs.length;
+    let firstLocation = null; // 保存第一个景点的位置
 
     // 逐个搜索地点，避免 QPS 限制
     for (let i = 0; i < locs.length; i++) {
@@ -398,6 +412,11 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
           const place = places[0];
           const position = [place.location.lng, place.location.lat];
           allPositions.push(position);
+
+          // 保存第一个景点的位置
+          if (!firstLocation) {
+            firstLocation = position;
+          }
 
           // 添加标记
           if (mapInstanceRef.current) {
@@ -447,17 +466,24 @@ const MapComponent = forwardRef(({ destination, locations = [], dayLocations = [
       message.warning(`地点标记失败，请稍后重试或减少地点数量`);
     }
 
-    // 调整地图视野以包含所有标记
+    // 调整地图视野
     if (allPositions.length > 0) {
       setTimeout(() => {
         if (mapInstanceRef.current) {
           try {
-            mapInstanceRef.current.setFitView();
+            if (allPositions.length === 1) {
+              // 只有一个景点,定位到该景点
+              mapInstanceRef.current.setCenter(allPositions[0]);
+              mapInstanceRef.current.setZoom(13);
+            } else {
+              // 多个景点,调整视野包含所有景点
+              mapInstanceRef.current.setFitView();
+            }
           } catch (error) {
             console.error('调整地图视野失败:', error);
           }
         }
-      }, 300);
+      }, 500);
     }
   };
 

@@ -4,7 +4,7 @@ import { AudioOutlined, LoadingOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
-const VoiceInput = ({ speechService, onResult }) => {
+const VoiceInput = ({ speechService, onResult, placeholder }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
 
@@ -47,6 +47,9 @@ const VoiceInput = ({ speechService, onResult }) => {
     setIsRecording(false);
   };
 
+  // 默认提示语
+  const defaultPlaceholder = '💡 您可以说："我想去上海，5天，预算1万元，喜欢美食和动漫，带孩子"';
+
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       <Button
@@ -74,7 +77,7 @@ const VoiceInput = ({ speechService, onResult }) => {
       )}
       
       <Text type="secondary" style={{ fontSize: 12 }}>
-        💡 您可以说："我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
+        {placeholder || defaultPlaceholder}
       </Text>
     </Space>
   );

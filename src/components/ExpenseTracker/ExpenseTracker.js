@@ -166,35 +166,136 @@ const ExpenseTracker = () => {
     if (parsed) {
       form.setFieldsValue(parsed);
       message.success('语音输入解析成功！');
+    } else {
+      message.warning('未能识别到有效信息，请重试或手动输入');
     }
+  };
+
+  // 中文数字转换为阿拉伯数字
+  const chineseToNumber = (chineseNum) => {
+    const chineseNumbers = {
+      '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+      '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+      '十': 10, '百': 100, '千': 1000, '万': 10000,
+      '壹': 1, '贰': 2, '叁': 3, '肆': 4, '伍': 5,
+      '陆': 6, '柒': 7, '捌': 8, '玖': 9, '拾': 10
+    };
+
+    // 处理特殊情况：十 -> 10
+    if (chineseNum === '十') return 10;
+    
+    // 处理 "十X" 格式，如：十一 -> 11, 十五 -> 15
+    if (chineseNum.startsWith('十') && chineseNum.length === 2) {
+      const lastChar = chineseNum[1];
+      const lastNum = chineseNumbers[lastChar];
+      return 10 + (lastNum || 0);
+    }
+
+    let result = 0;
+    let temp = 0;
+
+    for (let i = 0; i < chineseNum.length; i++) {
+      const char = chineseNum[i];
+      const num = chineseNumbers[char];
+
+      if (num === undefined) continue;
+
+      // 如果是单位（十、百、千、万）
+      if (num >= 10) {
+        // 如果前面没有数字，默认为1
+        if (temp === 0) {
+          temp = 1;
+        }
+        result += temp * num;
+        temp = 0;
+      } else {
+        // 如果是数字（0-9）
+        temp = num;
+      }
+    }
+
+    // 加上最后剩余的数字
+    result += temp;
+    return result;
   };
 
   const parseExpenseVoice = (text) => {
     const result = {};
     
-    // 提取金额
-    const amountMatch = text.match(/(\d+(?:\.\d+)?)(?:元|块|万)/);
-    if (amountMatch) {
-      const amount = parseFloat(amountMatch[1]);
-      result.amount = text.includes('万') ? amount * 10000 : amount;
+    // 先将文本中的中文数字转换为阿拉伯数字
+    let processedText = text;
+    
+    // 匹配中文数字模式（包括"三十"、"五十"等）
+    const chineseNumberPattern = /([一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾]+)/g;
+    const matches = [...text.matchAll(chineseNumberPattern)];
+    
+    for (const match of matches) {
+      const chineseNum = match[1];
+      const arabicNum = chineseToNumber(chineseNum);
+      if (arabicNum > 0) {
+        processedText = processedText.replace(chineseNum, arabicNum.toString());
+      }
     }
 
-    // 提取类别
+    // 提取金额 - 支持多种格式（使用处理后的文本）
+    const amountPatterns = [
+      /(\d+(?:\.\d+)?)\s*万\s*元/,  // X万元
+      /(\d+(?:\.\d+)?)\s*万/,       // X万
+      /(\d+(?:\.\d+)?)\s*块/,       // X块
+      /(\d+(?:\.\d+)?)\s*元/,       // X元
+      /花了?\s*(\d+(?:\.\d+)?)/,    // 花了X
+      /(\d+(?:\.\d+)?)\s*块钱/,     // X块钱
+      /(\d+(?:\.\d+)?)\s*元钱/      // X元钱
+    ];
+
+    for (const pattern of amountPatterns) {
+      const match = processedText.match(pattern);
+      if (match) {
+        const amount = parseFloat(match[1]);
+        if (processedText.includes('万')) {
+          result.amount = amount * 10000;
+        } else {
+          result.amount = amount;
+        }
+        break;
+      }
+    }
+
+    // 提取类别 - 扩展关键词
     const categoryMap = {
       '住宿': 'accommodation',
       '酒店': 'accommodation',
+      '宾馆': 'accommodation',
+      '旅馆': 'accommodation',
+      '民宿': 'accommodation',
       '交通': 'transportation',
       '打车': 'transportation',
+      '出租车': 'transportation',
+      '滴滴': 'transportation',
       '地铁': 'transportation',
+      '公交': 'transportation',
       '飞机': 'transportation',
+      '机票': 'transportation',
+      '高铁': 'transportation',
+      '火车': 'transportation',
       '餐饮': 'food',
       '吃饭': 'food',
       '午餐': 'food',
       '晚餐': 'food',
+      '早餐': 'food',
+      '吃': 'food',
+      '喝': 'food',
+      '咖啡': 'food',
+      '奶茶': 'food',
       '活动': 'activities',
       '门票': 'activities',
+      '景点': 'activities',
+      '游玩': 'activities',
+      '娱乐': 'activities',
       '购物': 'shopping',
-      '买': 'shopping'
+      '买': 'shopping',
+      '商场': 'shopping',
+      '超市': 'shopping'
     };
 
     for (const [keyword, category] of Object.entries(categoryMap)) {
@@ -204,9 +305,83 @@ const ExpenseTracker = () => {
       }
     }
 
-    // 提取标题（简单处理）
-    if (result.amount && result.category) {
-      result.title = text.substring(0, 20);
+    // 提取标题 - 智能处理
+    let title = '';
+    
+    // 尝试提取特定格式的标题
+    const titlePatterns = [
+      /(.+?)(?:\d+|[一二三四五六七八九十百千万]+)\s*(?:元|块|万)/,  // "标题 金额元" 格式
+      /(.+?)花了?/,                           // "标题 花了" 格式
+      /(.+?)备注/,                            // "标题 备注" 格式
+    ];
+
+    for (const pattern of titlePatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        title = match[1].trim();
+        break;
+      }
+    }
+
+    // 如果没有匹配到，取前面的内容作为标题
+    if (!title && text.length > 0) {
+      // 移除金额相关的内容
+      title = text
+        .replace(/\d+(?:\.\d+)?\s*(?:元|块|万|块钱|元钱)/g, '')
+        .replace(/[一二三四五六七八九十百千万]+\s*(?:元|块|万|块钱|元钱)/g, '')
+        .replace(/花了?/g, '')
+        .replace(/备注[:：]?.*/g, '')
+        .trim();
+    }
+
+    // 限制标题长度
+    if (title.length > 30) {
+      title = title.substring(0, 30);
+    }
+
+    if (title) {
+      result.title = title;
+    }
+
+    // 提取备注 - 查找"备注"关键词后的内容
+    const remarkPatterns = [
+      /备注[:：]?\s*(.+)/,
+      /说明[:：]?\s*(.+)/,
+      /附注[:：]?\s*(.+)/,
+    ];
+
+    for (const pattern of remarkPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        result.description = match[1].trim();
+        // 从备注中移除可能的金额信息
+        result.description = result.description
+          .replace(/\d+(?:\.\d+)?\s*(?:元|块|万|块钱|元钱)/g, '')
+          .replace(/[一二三四五六七八九十百千万]+\s*(?:元|块|万|块钱|元钱)/g, '')
+          .trim();
+        break;
+      }
+    }
+
+    // 如果没有明确的备注标记，但文本较长，可能包含备注信息
+    if (!result.description && text.length > 20) {
+      // 提取金额和标题之后的内容作为备注
+      const cleanedText = text
+        .replace(result.title || '', '')
+        .replace(/\d+(?:\.\d+)?\s*(?:元|块|万|块钱|元钱)/g, '')
+        .replace(/[一二三四五六七八九十百千万]+\s*(?:元|块|万|块钱|元钱)/g, '')
+        .replace(/花了?/g, '')
+        .replace(new RegExp(Object.keys(categoryMap).join('|'), 'g'), '')
+        .trim();
+      
+      if (cleanedText.length > 2 && cleanedText.length < 100) {
+        result.description = cleanedText;
+      }
+    }
+
+    // 如果没有提取到类别，默认设置为"其他"
+    if (!result.category && (result.amount || result.title)) {
+      result.category = 'other';
     }
 
     return Object.keys(result).length > 0 ? result : null;
@@ -446,6 +621,7 @@ const ExpenseTracker = () => {
                       <VoiceInput
                         speechService={speechService}
                         onResult={handleVoiceInput}
+                        placeholder='💡 您可以说："午餐花了50元"、"打车费30块 备注：去机场"、"购物1000元 买了一件外套"'
                       />
                     </Form.Item>
                   )}

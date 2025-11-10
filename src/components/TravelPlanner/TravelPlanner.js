@@ -85,51 +85,194 @@ const TravelPlanner = () => {
   };
 
   const handleVoiceInput = (text) => {
-    // 解析语音输入，提取旅行信息
     const parsed = parseVoiceInput(text);
     if (parsed) {
       form.setFieldsValue(parsed);
       message.success('语音输入解析成功！');
+    } else {
+      message.warning('未能识别到有效信息，请重试或手动输入');
     }
   };
 
+  // 处理日期范围变化，自动计算天数
+  const handleDateRangeChange = (dates) => {
+    if (dates && dates[0] && dates[1]) {
+      const days = dates[1].diff(dates[0], 'day') + 1;
+      form.setFieldsValue({ days });
+    }
+  };
+
+  // 中文数字转换为阿拉伯数字
+  const chineseToNumber = (chineseNum) => {
+    const chineseNumbers = {
+      '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4,
+      '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+      '十': 10, '百': 100, '千': 1000, '万': 10000,
+      '壹': 1, '贰': 2, '叁': 3, '肆': 4, '伍': 5,
+      '陆': 6, '柒': 7, '捌': 8, '玖': 9, '拾': 10
+    };
+
+    // 处理特殊情况：十 -> 10
+    if (chineseNum === '十') return 10;
+    
+    // 处理 "十X" 格式，如：十一 -> 11, 十五 -> 15
+    if (chineseNum.startsWith('十') && chineseNum.length === 2) {
+      const lastChar = chineseNum[1];
+      const lastNum = chineseNumbers[lastChar];
+      return 10 + (lastNum || 0);
+    }
+
+    let result = 0;
+    let temp = 0;
+
+    for (let i = 0; i < chineseNum.length; i++) {
+      const char = chineseNum[i];
+      const num = chineseNumbers[char];
+
+      if (num === undefined) continue;
+
+      // 如果是单位（十、百、千、万）
+      if (num >= 10) {
+        // 如果前面没有数字，默认为1
+        if (temp === 0) {
+          temp = 1;
+        }
+        result += temp * num;
+        temp = 0;
+      } else {
+        // 如果是数字（0-9）
+        temp = num;
+      }
+    }
+
+    // 加上最后剩余的数字
+    result += temp;
+    return result;
+  };
+
   const parseVoiceInput = (text) => {
-    // 简单的语音解析逻辑
     const result = {};
     
-    // 提取目的地
-    const destinationMatch = text.match(/去(.+?)(?:，|,|。|\.|\s|$)/);
-    if (destinationMatch) {
-      result.destination = destinationMatch[1];
+    // 先将文本中的中文数字转换为阿拉伯数字
+    let processedText = text;
+    
+    // 匹配中文数字模式
+    const chineseNumberPattern = /([一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾]+)/g;
+    const matches = [...text.matchAll(chineseNumberPattern)];
+    
+    for (const match of matches) {
+      const chineseNum = match[1];
+      const arabicNum = chineseToNumber(chineseNum);
+      if (arabicNum > 0) {
+        processedText = processedText.replace(chineseNum, arabicNum.toString());
+      }
+    }
+    
+    // 提取目的地 - 支持多种表达方式
+    const destinationPatterns = [
+      /去\s*([^\s，,。\.]+?)(?:旅游|旅行|玩|游玩)/,
+      /想去\s*([^\s，,。\.]+)/,
+      /到\s*([^\s，,。\.]+?)(?:旅游|旅行|玩|游玩)/,
+      /目的地\s*[:：]?\s*([^\s，,。\.]+)/,
+      /去\s*([^\s，,。\.]{2,})/
+    ];
+
+    for (const pattern of destinationPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const destination = match[1].trim();
+        const ignoreWords = ['天', '人', '元', '块', '预算', '万', '喜欢', '想', '花'];
+        if (!ignoreWords.some(word => destination.includes(word)) && destination.length >= 2) {
+          result.destination = destination;
+          break;
+        }
+      }
     }
 
-    // 提取天数
-    const daysMatch = text.match(/(\d+)天/);
-    if (daysMatch) {
-      result.days = parseInt(daysMatch[1]);
+    // 提取天数 - 使用处理后的文本（支持中文数字）
+    const daysPatterns = [
+      /(\d+)\s*天/,
+      /玩\s*(\d+)\s*天/,
+      /(\d+)\s*日/,
+      /天数\s*[:：]?\s*(\d+)/
+    ];
+
+    for (const pattern of daysPatterns) {
+      const match = processedText.match(pattern);
+      if (match && match[1]) {
+        const days = parseInt(match[1]);
+        if (days > 0 && days <= 30) {
+          result.days = days;
+          break;
+        }
+      }
     }
 
-    // 提取预算
-    const budgetMatch = text.match(/预算(\d+)(?:元|万)/);
-    if (budgetMatch) {
-      const amount = parseInt(budgetMatch[1]);
-      result.budget = text.includes('万') ? amount * 10000 : amount;
+    // 提取预算 - 支持多种格式（使用处理后的文本）
+    const budgetPatterns = [
+      /预算\s*[:：]?\s*(\d+(?:\.\d+)?)\s*万/,
+      /(\d+(?:\.\d+)?)\s*万\s*(?:元|块)?(?:预算)?/,
+      /预算\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:元|块)/,
+      /(\d+(?:\.\d+)?)\s*(?:元|块)\s*预算/,
+      /花\s*(\d+(?:\.\d+)?)\s*(?:元|块|万)/,
+      /大概\s*(\d+(?:\.\d+)?)\s*(?:元|块|万)/
+    ];
+
+    for (const pattern of budgetPatterns) {
+      const match = processedText.match(pattern);
+      if (match && match[1]) {
+        const amount = parseFloat(match[1]);
+        const matchedText = processedText.match(pattern)[0];
+        if (matchedText.includes('万')) {
+          result.budget = amount * 10000;
+        } else {
+          result.budget = amount;
+        }
+        break;
+      }
     }
 
-    // 提取人数
-    const peopleMatch = text.match(/(\d+)人/);
-    if (peopleMatch) {
-      result.peopleCount = parseInt(peopleMatch[1]);
+    // 提取人数 - 使用处理后的文本（支持中文数字）
+    const peoplePatterns = [
+      /(\d+)\s*(?:个)?人/,
+      /(\d+)\s*位/,
+      /人数\s*[:：]?\s*(\d+)/,
+      /同行\s*(\d+)\s*人/
+    ];
+
+    for (const pattern of peoplePatterns) {
+      const match = processedText.match(pattern);
+      if (match && match[1]) {
+        const people = parseInt(match[1]);
+        if (people > 0 && people <= 20) {
+          result.peopleCount = people;
+          break;
+        }
+      }
     }
 
-    // 提取偏好
+    // 提取偏好 - 扩展关键词识别
+    const preferenceMap = {
+      '美食': ['美食', '吃', '特色菜', '小吃', '美味'],
+      '购物': ['购物', '买东西', '逛街', '商场'],
+      '文化': ['文化', '博物馆', '艺术', '展览'],
+      '自然风光': ['自然', '风景', '山水', '海滩', '沙滩', '大海', '森林', '公园'],
+      '历史古迹': ['历史', '古迹', '古建筑', '遗址', '寺庙', '宫殿'],
+      '动漫文化': ['动漫', 'ACG', '二次元', '漫画'],
+      '户外运动': ['运动', '户外', '登山', '徒步', '滑雪', '潜水'],
+      '休闲度假': ['休闲', '度假', '放松', '悠闲'],
+      '探险': ['探险', '刺激', '冒险'],
+      '摄影': ['摄影', '拍照', '打卡']
+    };
+
     const preferences = [];
-    if (text.includes('美食')) preferences.push('美食');
-    if (text.includes('购物')) preferences.push('购物');
-    if (text.includes('文化')) preferences.push('文化');
-    if (text.includes('自然')) preferences.push('自然风光');
-    if (text.includes('历史')) preferences.push('历史古迹');
-    if (text.includes('动漫')) preferences.push('动漫文化');
+    for (const [preference, keywords] of Object.entries(preferenceMap)) {
+      if (keywords.some(keyword => text.includes(keyword))) {
+        if (!preferences.includes(preference)) {
+          preferences.push(preference);
+        }
+      }
+    }
     
     if (preferences.length > 0) {
       result.preferences = preferences.join('、');
@@ -224,8 +367,7 @@ const TravelPlanner = () => {
                 layout="vertical"
                 onFinish={onFinish}
                 initialValues={{
-                  peopleCount: 2,
-                  days: 3
+                  peopleCount: 2
                 }}
               >
                 <Row gutter={16}>
@@ -237,7 +379,7 @@ const TravelPlanner = () => {
                     >
                       <Input
                         prefix={<EnvironmentOutlined />}
-                        placeholder="如：日本、北京、三亚"
+                        placeholder="如：上海、北京"
                         size="large"
                       />
                     </Form.Item>
@@ -252,28 +394,19 @@ const TravelPlanner = () => {
                         style={{ width: '100%' }}
                         size="large"
                         disabledDate={(current) => current && current < dayjs().startOf('day')}
+                        onChange={handleDateRangeChange}
                       />
                     </Form.Item>
                   </Col>
                 </Row>
 
+                {/* 隐藏的天数字段，由日期范围自动计算 */}
+                <Form.Item name="days" hidden>
+                  <InputNumber />
+                </Form.Item>
+
                 <Row gutter={16}>
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      name="days"
-                      label="旅行天数"
-                      rules={[{ required: true, message: '请输入旅行天数' }]}
-                    >
-                      <InputNumber
-                        min={1}
-                        max={30}
-                        style={{ width: '100%' }}
-                        size="large"
-                        prefix={<CalendarOutlined />}
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={8}>
+                  <Col xs={24} md={12}>
                     <Form.Item
                       name="peopleCount"
                       label="同行人数"
@@ -288,7 +421,10 @@ const TravelPlanner = () => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col xs={24} md={8}>
+                </Row>
+
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
                     <Form.Item
                       name="budget"
                       label="预算（元）"
@@ -322,6 +458,7 @@ const TravelPlanner = () => {
                     <VoiceInput
                       speechService={speechService}
                       onResult={handleVoiceInput}
+                      placeholder='💡 示例：我想去上海玩五天，预算五千元，两个人，喜欢美食和购物'
                     />
                   </Form.Item>
                 )}
